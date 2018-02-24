@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="13772" systemVersion="17B1003" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="PhotoFrame" representedClassName=".PhotoFrame" syncable="YES">
+        <attribute name="creationDate" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="imageData" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES" syncable="YES"/>
+        <relationship name="pin" maxCount="1" deletionRule="Nullify" destinationEntity="Pin" inverseName="images" inverseEntity="Pin" syncable="YES"/>
+        <fetchIndex name="byImageDataIndex">
+            <fetchIndexElement property="imageData" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byCreationDateIndex">
+            <fetchIndexElement property="creationDate" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="Pin" representedClassName=".Pin" syncable="YES">
+        <attribute name="creationDate" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="hasReturned" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="latitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="longitude" attributeType="Double" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="numberOfImages" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="images" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PhotoFrame" inverseName="pin" inverseEntity="PhotoFrame" syncable="YES"/>
+        <fetchIndex name="byCreationDateIndex">
+            <fetchIndexElement property="creationDate" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byHasReturnedIndex">
+            <fetchIndexElement property="hasReturned" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byLatitudeIndex">
+            <fetchIndexElement property="latitude" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byLongitudeIndex">
+            <fetchIndexElement property="longitude" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byNumberOfImagesIndex">
+            <fetchIndexElement property="numberOfImages" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byImagesIndex">
+            <fetchIndexElement property="images" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <elements>
+        <element name="Pin" positionX="-63" positionY="-18" width="128" height="133"/>
+        <element name="PhotoFrame" positionX="286" positionY="-0" width="128" height="88"/>
+    </elements>
+</model>
