@@ -49,7 +49,9 @@ class FlickrClient {
                 return
             }
             
-            self.convertDataWithCompletionHandler(data, completionHandlerForConvertData: completionHandlerForGetMethod)
+                self.convertDataWithCompletionHandler(data, completionHandlerForConvertData: completionHandlerForGetMethod)
+            
+            
             
         }
         task.resume()

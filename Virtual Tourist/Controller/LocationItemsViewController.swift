@@ -125,11 +125,14 @@ class LocationItemsViewController: UIViewController {
             NotificationCenter.default.addObserver(self, selector: #selector(loadAlertMsg(_:)), name: .errorMessageToAlertController, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(enableCellsSelection), name: .allowCellSelection, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(enableLoadMorePicturesButton), name: .enableLoadMorePictures, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(updateNumberOfItemsErrorTimeOut), name: .errorFinishingTheBackgroundDownloading, object: nil)
         case .Disabled:
             NotificationCenter.default.removeObserver(self, name: .pinNumberOfImages, object: nil)
             NotificationCenter.default.removeObserver(self, name: .errorMessageToAlertController, object: nil)
             NotificationCenter.default.removeObserver(self, name: .allowCellSelection, object: nil)
             NotificationCenter.default.removeObserver(self, name: .enableLoadMorePictures, object: nil)
+            NotificationCenter.default.removeObserver(self, name: .errorFinishingTheBackgroundDownloading, object: nil)
+            //Remove observers self
         }
     }
     
@@ -144,6 +147,25 @@ class LocationItemsViewController: UIViewController {
         }
     }
 
+    // Update the pin.numberOfItems since the call has been
+    // Timed Out and the rest of the pictures will not download
+    @objc private func updateNumberOfItemsErrorTimeOut(){
+        if let pinImages = pin.images?.count , pinImages != 0 {
+            pin.numberOfImages = Int16(pinImages)
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+                self.loadMorePhotos(is: .Enabled)
+                self.allowSelectionOnCells(is: .Enabled)
+                
+            }
+            
+        }
+        
+        
+    }
+    
+    
+    
     // triggers a alertController to show a alert message
     @objc private func loadAlertMsg(_ notification: Notification){
         
@@ -204,14 +226,14 @@ class LocationItemsViewController: UIViewController {
     
     //Delete Selected Cells
     private func deleteSelectedObjects(){
-        
+
         var results = [PhotoFrame]()
         do{
             results = try stack.context.fetch(frc.fetchRequest) as! [PhotoFrame]
         }catch{
             print("Error Fetch obj for Deletion")
         }
-        
+
         for result in results{
             for selectedImage in selectedImages{
                 if result == selectedImage {
@@ -219,42 +241,47 @@ class LocationItemsViewController: UIViewController {
                             self.stack.context.delete(result)
                         }
                         print("Deleted Object")
-                    
+
                 }else{
                     print("Not egual")
                 }
             }
         }
-        
-        
-        
+
+
+
         getNumberOfItems(from: selectedImages.count)
         selectedImages.removeAll()
-        
+
         stack.save()
         let a = try? stack.context.count(for: frc.fetchRequest)
-        print("a: \(a)")
+        print("a: \(String(describing: a))")
         editingMode = false
         loadMorePictures.setTitle("Load More Pictures", for: .normal)
         allowSelectionOnCells(is: .Enabled)
         print("NumberOfImages : \(pin.numberOfImages) , pin.images.count : \(pin.images?.count) , pin.images?.allObjects.count : \(pin.images?.allObjects.count)")
-    
+
     }
+    
+
     
     // deletes all images for Pin
     private func deleteAllPhotoFrameObjForPin() -> Int {
-        
+
         let results = frc.fetchedObjects!
         stack.context.performAndWait {
-            for photoFrame in frc.fetchedObjects!{
+            for photoFrame in self.frc.fetchedObjects!{
                     self.stack.context.delete(photoFrame as! NSManagedObject)
             }
         }
-        
+
         print(results.count)
         print("P I N Deleted: \(pin)")
         return  results.count
     }
+
+    
+    
     
     
     private func checkForUnfinishedCall(){
@@ -282,7 +309,7 @@ class LocationItemsViewController: UIViewController {
         }else{
             //Call FlickrClient Get Method
             //mapView.isFirstResponder
-            mapView.setNeedsDisplay()
+            
             let numberOfDeletedPhotos = deleteAllPhotoFrameObjForPin()
             getNumberOfItems(from: numberOfDeletedPhotos)
             //pin.numberOfImages = 0
@@ -292,6 +319,10 @@ class LocationItemsViewController: UIViewController {
             allowSelectionOnCells(is: .Disable)
             executeSearch()
             let unfinishedPin : [String:Pin] = ["unfinishedPin":pin]
+            
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName:"Pin")
+            fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+            
             FlickrClient.sharedInstance.getPhotosFromFlickr(pin: pin, completionHandlerForGetPhotosFromFlickrDownloadedItems: { (success, numberOfWillDownloadItems, errorString) in
                 NotificationCenter.default.post(name: .addUnfinishedPinToAppDelegate, object: nil, userInfo: unfinishedPin)
                 if success {
@@ -308,9 +339,7 @@ class LocationItemsViewController: UIViewController {
                 
                 if success{
                     NotificationCenter.default.post(name: .removeUnfinishedPinFromAppDelegate, object: nil, userInfo: unfinishedPin)
-                    let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName:"Pin")
-                    fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
-
+                    
                     var results1 = [Pin]()
 
                     do{
@@ -323,7 +352,7 @@ class LocationItemsViewController: UIViewController {
                         if result == self.pin{
                             self.stack.context.performAndWait {
                                 self.pin.hasReturned = true
-                                self.stack.save()
+                                //self.stack.save()
                             }
                         }
                     }
@@ -334,6 +363,26 @@ class LocationItemsViewController: UIViewController {
                     NotificationCenter.default.post(name: .enableLoadMorePictures, object: nil)
                 }else{
                     print(" **** Not success downloading photos backgroundContext")
+                    
+                    var results1 = [Pin]()
+                    
+                    do{
+                        results1 = try self.stack.context.fetch(fetchRequest) as! [Pin]
+                    }catch{
+                        print("Error Load More Save")
+                    }
+                    
+                    for result in results1{
+                        if result == self.pin{
+                            self.stack.context.performAndWait {
+                                self.pin.hasReturned = true
+                                //self.stack.save()
+                            }
+                        }
+                    }
+                    
+                    NotificationCenter.default.post(name: .errorFinishingTheBackgroundDownloading, object: nil)
+                    
                     if errorString == ""{
                     }else{
                         let errorString :[String:String] = ["errorString":errorString!]

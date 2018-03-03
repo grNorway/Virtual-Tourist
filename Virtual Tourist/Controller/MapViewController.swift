@@ -185,9 +185,11 @@ class MapViewController: UIViewController {
                 pin.hasReturned = false
                 NotificationCenter.default.post(name: .addUnfinishedPinToAppDelegate, object: nil, userInfo: unfinishedPin)
                 print("Entered")
+                
                 FlickrClient.sharedInstance.getPhotosFromFlickr(pin: pin, completionHandlerForGetPhotosFromFlickrDownloadedItems: { (success, numberOfWillDownloadItems, errorString) in
                     
                     if success {
+                        
                         print("success number of items \(numberOfWillDownloadItems) Pin:\(pin.numberOfImages)")
                         NotificationCenter.default.post(name: .pinNumberOfImages, object: nil)
                         //TODO: Send notification to AppDelegate about unfinished Pin (try to send the ObjectID)
@@ -198,6 +200,13 @@ class MapViewController: UIViewController {
                         let errorString :[String: String] = ["errorString":errorString!]
                         NotificationCenter.default.post(name: .errorMessageToAlertController, object: nil, userInfo: errorString)
                         NotificationCenter.default.post(name: .enableLoadMorePictures, object: nil)
+                        DispatchQueue.main.async {
+                            self.stack.context.perform{
+                                pin.hasReturned = true
+                            }
+                            
+                            print("PIN ON NOT SUCCESS : \(pin)")
+                        }
                     }
                 }, completionHandlerForGetPhotosFromFlickrFinishDownloading: { (success, errorString) in
                     let fetchRequest = self.getFetchRequest(for: .Pin)
@@ -227,11 +236,14 @@ class MapViewController: UIViewController {
                         print(" **** Not success downloading photos backgroundContext")
                         for result in results {
                             if result == pin{
-                                self.stack.context.perform{
+                                self.stack.context.performAndWait{
                                     pin.hasReturned = true
                                 }
                             }
                         }
+                        //TODO: Send Notification to LocationItems and set
+                        NotificationCenter.default.post(name: .errorFinishingTheBackgroundDownloading, object: nil)
+                        print(" P I N NOT Success : \(pin)")
                         //Enable load more pictures
                         //set pin.numberOfImages = pin.images?.count
                         //Make Notification for that 

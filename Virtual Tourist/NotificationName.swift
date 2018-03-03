@@ -17,5 +17,6 @@ extension Notification.Name {
     static let pinForGetPhotos = Notification.Name("pinForGetPhotos")
     static let removeUnfinishedPinFromAppDelegate = Notification.Name("removePinFromAppDelegate")
     static let addUnfinishedPinToAppDelegate = Notification.Name("unfinishedPinToAppDelegate")
+    static let errorFinishingTheBackgroundDownloading = Notification.Name("errorFinishingTheBackgroundDownloading")
     
 }
