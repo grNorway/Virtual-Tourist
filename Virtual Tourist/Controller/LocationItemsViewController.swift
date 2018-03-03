@@ -50,7 +50,7 @@ class LocationItemsViewController: UIViewController {
         mapView.delegate = self
         frc.delegate = self
         allowSelectionOnCells(is: .Disable)
-        
+        //checkForUnfinishedCall()
         if let pin = pin {
             executeSearch()
             setupMapView(from: pin)
@@ -135,7 +135,7 @@ class LocationItemsViewController: UIViewController {
     
     deinit {
         frc.delegate = nil
-        print("Hello")
+        print("LocationItemsViewController deinit")
     }
     
     @objc private func pinNumberOfImagesChanged(){
@@ -180,7 +180,8 @@ class LocationItemsViewController: UIViewController {
         
         if pin.hasReturned && pin.numberOfImages > Int(pin.images!.count){
             if editingMode{
-                pin.numberOfImages = Int16(pin.images!.count - results)
+                pin.numberOfImages = Int16(collectionView.visibleCells.count) //Int16(pin.images!.count - results)
+                
             }else{
                 pin.numberOfImages = 0
             }
@@ -214,10 +215,11 @@ class LocationItemsViewController: UIViewController {
         for result in results{
             for selectedImage in selectedImages{
                 if result == selectedImage {
-                    stack.context.performAndWait {
-                        stack.context.delete(result)
-                    }
-                    print("Deleted Object")
+                        self.stack.context.performAndWait {
+                            self.stack.context.delete(result)
+                        }
+                        print("Deleted Object")
+                    
                 }else{
                     print("Not egual")
                 }
@@ -229,12 +231,9 @@ class LocationItemsViewController: UIViewController {
         getNumberOfItems(from: selectedImages.count)
         selectedImages.removeAll()
         
-        do{
-           try stack.context.save()
-        }catch{
-            print("Error Save Deletion")
-        }
-        
+        stack.save()
+        let a = try? stack.context.count(for: frc.fetchRequest)
+        print("a: \(a)")
         editingMode = false
         loadMorePictures.setTitle("Load More Pictures", for: .normal)
         allowSelectionOnCells(is: .Enabled)
@@ -245,63 +244,32 @@ class LocationItemsViewController: UIViewController {
     // deletes all images for Pin
     private func deleteAllPhotoFrameObjForPin() -> Int {
         
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName:"PhotoFrame")
-        request.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
-        let predicate = NSPredicate(format: "pin = %@", pin)
-        request.predicate = predicate
-
-//        var results = [PhotoFrame]()
-//        do{
-//            results = try stack.context.fetch(frc.fetchRequest) as! [PhotoFrame]
-//        }catch{
-//            print("Error deleteAllPhotoFrameObjForPin fetch")
-//        }
-//
-//        stack.context.performAndWait {
-//            for result in results{
-//
-//                stack.context.delete(result)
-//                stack.context.processPendingChanges()
-//                do{
-//                    try stack.context.save()
-//                }catch{
-//                    print("Error Save Delete")
-//                }
-//                print("Deleted")
-//            }
-//        }
-//
-//
-//        print("P I N Deleted: \(pin)")
-
-//        let request = frc.fetchRequest
-//        let batchRequest = NSBatchDeleteRequest(fetchRequest: request)
-//
-//        do{
-//            try stack.context.execute(batchRequest)
-//            try stack.context.save()
-//        }catch{
-//            print("Error batch")
-//        }
         let results = frc.fetchedObjects!
         stack.context.performAndWait {
             for photoFrame in frc.fetchedObjects!{
-                
-                stack.context.delete(photoFrame as! NSManagedObject)
+                    self.stack.context.delete(photoFrame as! NSManagedObject)
             }
         }
         
-            print("P I N Deleted: \(pin)")
+        print(results.count)
+        print("P I N Deleted: \(pin)")
         return  results.count
     }
     
     
     private func checkForUnfinishedCall(){
-        if pin.hasReturned && pin.images?.count == Int(pin.numberOfImages){
+        if !pin.hasReturned && pin.images?.count == Int(pin.numberOfImages){
             allowSelectionOnCells(is: .Enabled)
             loadMorePhotos(is: .Enabled)
+            stack.context.perform {
+                print("Pin Updated hasReturned")
+                self.pin.hasReturned = true
+            }
+           
+            
         }
     }
+    
     
     //LoadMorePictures button
     // 1) deletes selected pictures
@@ -322,10 +290,10 @@ class LocationItemsViewController: UIViewController {
             loadMorePhotos(is: .Disable)
             pin.hasReturned = false
             allowSelectionOnCells(is: .Disable)
-            
-            
+            executeSearch()
+            let unfinishedPin : [String:Pin] = ["unfinishedPin":pin]
             FlickrClient.sharedInstance.getPhotosFromFlickr(pin: pin, completionHandlerForGetPhotosFromFlickrDownloadedItems: { (success, numberOfWillDownloadItems, errorString) in
-                
+                NotificationCenter.default.post(name: .addUnfinishedPinToAppDelegate, object: nil, userInfo: unfinishedPin)
                 if success {
                     print("success number of items \(numberOfWillDownloadItems) Pin:\(self.pin.numberOfImages)")
                     NotificationCenter.default.post(name: .pinNumberOfImages, object: nil)
@@ -339,28 +307,27 @@ class LocationItemsViewController: UIViewController {
             }, completionHandlerForGetPhotosFromFlickrFinishDownloading: { (success, errorString) in
                 
                 if success{
-                    
-//                    let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName:"Pin")
-//                    fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
-//
-//                    var results1 = [Pin]()
-//
-//                    do{
-//                        results1 = try self.stack.backgroundContext.fetch(fetchRequest) as! [Pin]
-//                    }catch{
-//                        print("Error Load More Save")
-//                    }
-//
-//                    for result in results1{
-//                        if result == self.pin{
-//                            self.pin.hasReturned = true
-//                        }
-//                    }
-                    self.stack.context.performAndWait {
-                        self.pin.hasReturned = true
+                    NotificationCenter.default.post(name: .removeUnfinishedPinFromAppDelegate, object: nil, userInfo: unfinishedPin)
+                    let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName:"Pin")
+                    fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+
+                    var results1 = [Pin]()
+
+                    do{
+                        results1 = try self.stack.context.fetch(fetchRequest) as! [Pin]
+                    }catch{
+                        print("Error Load More Save")
                     }
-                    
-                    self.stack.save()
+
+                    for result in results1{
+                        if result == self.pin{
+                            self.stack.context.performAndWait {
+                                self.pin.hasReturned = true
+                                self.stack.save()
+                            }
+                        }
+                    }
+
                     print(" P I N Success : \(self.pin)")
                     print(" **** Finished downloading photos backgroundContext")
                     NotificationCenter.default.post(name: .allowCellSelection, object: nil)
@@ -383,7 +350,7 @@ class LocationItemsViewController: UIViewController {
 
 
             // -------- EXTENSIONS -------- //
-
+//MARK: CollectionView - Delegate
 extension LocationItemsViewController : UICollectionViewDelegate{
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -421,6 +388,7 @@ extension LocationItemsViewController : UICollectionViewDelegate{
     
 }
 
+//MARK: CollectionView - Data Source
 extension LocationItemsViewController : UICollectionViewDataSource{
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -430,16 +398,20 @@ extension LocationItemsViewController : UICollectionViewDataSource{
             loadMorePhotos(is: .Enabled)
             allowSelectionOnCells(is: .Enabled)
             pin.numberOfImages = Int16(pin.images!.count)
-            return Int(pin.numberOfImages)
+            print("1 NumberOfImages : \(pin.numberOfImages) | pin.images.count : \(pin.images?.count)")
+            return pin.images!.count
             
-        }else if pin.hasReturned && pin.numberOfImages == pin.images!.count{
+//        }else if pin.hasReturned && pin.numberOfImages == pin.images!.count{
+//
+//            loadMorePhotos(is: .Enabled)
+//            allowSelectionOnCells(is: .Enabled)
+//            print("2 NumberOfImages : \(pin.numberOfImages) | pin.images.count : \(pin.images?.count)")
+//            //pin.numberOfImages = Int16(collectionView.visibleCells.count)
+//            return Int(pin.numberOfImages)
             
-            loadMorePhotos(is: .Enabled)
-            allowSelectionOnCells(is: .Enabled)
-            
-            return Int(pin.numberOfImages)
         
         }else{
+            print("3")
             return Int(pin.numberOfImages)
         }
 
@@ -501,7 +473,7 @@ extension LocationItemsViewController : NSFetchedResultsControllerDelegate{
         if pin.hasReturned{
             pin.hasReturned = false
         }
-        checkForUnfinishedCall()
+        
         print("*** controller will change content")
         
     }
@@ -530,11 +502,6 @@ extension LocationItemsViewController : NSFetchedResultsControllerDelegate{
     
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         
-        //There is a bug on iOS and the only way to avoid it is by reloading the tableView only in insert Type
-//        if self.insertIndexPaths.count != 0 {
-//            self.collectionView.reloadData()
-//        }
-        
         self.collectionView.performBatchUpdates({
             
             for indexPath in self.insertIndexPaths {
@@ -562,7 +529,10 @@ extension LocationItemsViewController : NSFetchedResultsControllerDelegate{
                 print("update")
                 self.collectionView.reloadItems(at: [indexPath])
             }
-        }, completion: nil)
+        }, completion: {(_) in
+            self.checkForUnfinishedCall()
+        })
+        
         
         
     }

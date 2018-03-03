@@ -15,6 +15,7 @@ extension Notification.Name {
     static let enableLoadMorePictures = Notification.Name("enableLoadMorePictures")
     static let allowCellSelection = Notification.Name("allowCellSelection")
     static let pinForGetPhotos = Notification.Name("pinForGetPhotos")
-    static let removePinFromAppDelegate = Notification.Name("removePinFromAppDelegate")
+    static let removeUnfinishedPinFromAppDelegate = Notification.Name("removePinFromAppDelegate")
+    static let addUnfinishedPinToAppDelegate = Notification.Name("unfinishedPinToAppDelegate")
     
 }

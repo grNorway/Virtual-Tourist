@@ -38,6 +38,10 @@ class MapViewController: UIViewController {
         longPressGesture()
         fetchPinAnnotations()
     }
+    
+    deinit {
+        print("MapViewController Deinit")
+    }
 
     private func getFetchRequest(for object : coreDataObject) -> NSFetchRequest<NSFetchRequestResult>{
         
@@ -129,9 +133,9 @@ class MapViewController: UIViewController {
     private func getPinsToBackgroundContext(fetchRequest:NSFetchRequest<NSFetchRequestResult>) -> [Pin]{
         var results = [Pin]()
         
-        stack.backgroundContext.performAndWait {
+        stack.context.performAndWait {
             do{
-                results = try stack.backgroundContext.fetch(fetchRequest) as! [Pin]
+                results = try stack.context.fetch(fetchRequest) as! [Pin]
             }catch{
                 print("Core Data Error Background Fetch")
             }
@@ -162,7 +166,7 @@ class MapViewController: UIViewController {
                     locationItemsVC.pin = fetchedPin
                 }
             }
-            
+            let pinID = pin.objectID
             print("P I N : \(pin)")
             
             let fetchRequestVC = getFetchRequest(for: .PhotoFrame)
@@ -175,14 +179,20 @@ class MapViewController: UIViewController {
             locationItemsVC.frc = fetchResultsController
             locationItemsVC.stack = stack
             
+            let unfinishedPin : [String:Pin] = ["unfinishedPin":pin]
+            
             if pin.images?.allObjects.count == 0 && pin.hasReturned == true {
                 pin.hasReturned = false
-                
+                NotificationCenter.default.post(name: .addUnfinishedPinToAppDelegate, object: nil, userInfo: unfinishedPin)
+                print("Entered")
                 FlickrClient.sharedInstance.getPhotosFromFlickr(pin: pin, completionHandlerForGetPhotosFromFlickrDownloadedItems: { (success, numberOfWillDownloadItems, errorString) in
                     
                     if success {
                         print("success number of items \(numberOfWillDownloadItems) Pin:\(pin.numberOfImages)")
                         NotificationCenter.default.post(name: .pinNumberOfImages, object: nil)
+                        //TODO: Send notification to AppDelegate about unfinished Pin (try to send the ObjectID)
+                        
+                        
                     }else{
                         print("Not Success Get number of items \(numberOfWillDownloadItems) Pin:\(pin.numberOfImages)")
                         let errorString :[String: String] = ["errorString":errorString!]
@@ -190,24 +200,41 @@ class MapViewController: UIViewController {
                         NotificationCenter.default.post(name: .enableLoadMorePictures, object: nil)
                     }
                 }, completionHandlerForGetPhotosFromFlickrFinishDownloading: { (success, errorString) in
+                    let fetchRequest = self.getFetchRequest(for: .Pin)
+                    fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+                    let results = self.getPinsToBackgroundContext(fetchRequest: fetchRequest) // <-- mainContext
                     
                     if success{
-                        let fetchRequest = self.getFetchRequest(for: .Pin)
-                        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
-                        let results = self.getPinsToBackgroundContext(fetchRequest: fetchRequest)
+                        //self.stack.context.object(with: pinID)
+                        //TODO: Send Notification to AppDelegate to make unfinished Pins Finished
+                        
+                        NotificationCenter.default.post(name: .removeUnfinishedPinFromAppDelegate, object: nil, userInfo: unfinishedPin)
                         
                         for result in results {
                             if result == pin{
-                                pin.hasReturned = true
+                                self.stack.context.performAndWait{
+                                    pin.hasReturned = true
+                                }
                             }
                         }
                         
+ 
                         print(" P I N Success : \(pin)")
                         print(" **** Finished downloading photos backgroundContext")
                         NotificationCenter.default.post(name: .allowCellSelection, object: nil)
                         NotificationCenter.default.post(name: .enableLoadMorePictures, object: nil)
                     }else{
                         print(" **** Not success downloading photos backgroundContext")
+                        for result in results {
+                            if result == pin{
+                                self.stack.context.perform{
+                                    pin.hasReturned = true
+                                }
+                            }
+                        }
+                        //Enable load more pictures
+                        //set pin.numberOfImages = pin.images?.count
+                        //Make Notification for that 
                         if errorString == ""{
                         }else{
                             let errorString :[String:String] = ["errorString":errorString!]
@@ -218,8 +245,7 @@ class MapViewController: UIViewController {
             }else{
                 if pin.hasReturned{
                     print("Has returned")
-//                    NotificationCenter.default.post(name: .enableLoadMorePictures, object: nil)
-//                    NotificationCenter.default.post(name: .allowCellSelection, object: nil)
+
                     locationItemsVC.enableLoadMorePicturesButton()
                     locationItemsVC.enableCellsSelection()
                 }else{
@@ -231,13 +257,18 @@ class MapViewController: UIViewController {
 //                        timer = Timer.scheduledTimer(timeInterval: 60, target: self, selector: #selector(updatePinHasReturnedFromTimer), userInfo: pinNotReturned, repeats: false )
 //                    }
                     
-                    
+                    // Gets in just with !pin.hasReturned
                     if !pin.hasReturned && pin.images?.count != 0{
                         print("1")
-                        pin.hasReturned = true
+                        //pin.hasReturned = true
                         if pin.images!.count < pin.numberOfImages{
                             print("2")
-                            pin.hasReturned = true
+//                            stack.context.performAndWait {
+//                                pin.hasReturned = true
+//                                stack.save()
+//                                print("Saved")
+//                            }
+                            
                         }
                     }else if !pin.hasReturned && pin.images?.count == 0 {
                         let pinNotReturned : Pin = pin
@@ -254,6 +285,7 @@ class MapViewController: UIViewController {
         if let pin = timer.userInfo as? Pin {
             pin.hasReturned = true
             pin.numberOfImages = 0
+            print("Timer has started")
             
             let errorString : [String: String] = ["errorString" : "Time Out. Please try again"]
             NotificationCenter.default.post(name: .errorMessageToAlertController, object: nil, userInfo: errorString)

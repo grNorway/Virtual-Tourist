@@ -23,8 +23,6 @@ extension FlickrClient {
                 self.getNumberOfDownloadedPhotos(pin: pin, photoArray: photoArray!, { (success, downloadedItems, photoArray, errorString) in
                     if success{
                         pin.numberOfImages = Int16(downloadedItems)
-                        //TODO: Be sure about context saving
-                        //self.stack.save()
                         completionHandlerForGetPhotosFromFlickrDownloadedItems(true, downloadedItems, nil)
                         
                         self.downloadImageData(pin: pin, photoArray: photoArray!, completionHandlerForDownloadImageData: { (success, errorString) in
@@ -118,19 +116,20 @@ extension FlickrClient {
                         print("Pin is Deleted")
                         completionHandlerForDownloadImageData(false,"")
                     }else{
-                        stack.backgroundContext.perform {
-                            let _ = PhotoFrame(pin: pin, imageData: imageData as NSData, context: self.stack.backgroundContext)
-                            
-                            do{
-                                try self.stack.backgroundContext.save()
-                                print("OK downloaded")
-                            }catch{
-                                print("Error Saving BackgroundContext")
-                                completionHandlerForDownloadImageData(false, NetworkErrors.FLickrInternalError)
-                                //TODO: Core Data FatalError
+                            self.stack.context.perform {
+                                let _ = PhotoFrame(pin: pin, imageData: imageData as NSData, context: self.stack.context)
+                                
+//                                do{
+//                                    try self.stack.context.save()
+//                                    print("OK downloaded")
+//                                }catch{
+//                                    print("Error Saving BackgroundContext")
+//                                    completionHandlerForDownloadImageData(false, NetworkErrors.FLickrInternalError)
+//                                    //TODO: Core Data FatalError
+//                                }
+                                
                             }
-                            
-                        }
+                        
                     }
                 }else{
                     print("Error : if let imageURL")
@@ -162,9 +161,9 @@ private func checkForDeletedPin(stack : CoreDataStack , pinCoordinates : CLLocat
     request.predicate = NSCompoundPredicate(type: .and, subpredicates: [predicateLatitude,predicateLongitude])
     
     var results = [Pin]()
-    stack.backgroundContext.performAndWait {
+    stack.context.performAndWait {
         do{
-            results = try stack.backgroundContext.fetch(request) as! [Pin]
+            results = try stack.context.fetch(request) as! [Pin]
         }catch{
             print("Error Checking Deleted Pin")
         }

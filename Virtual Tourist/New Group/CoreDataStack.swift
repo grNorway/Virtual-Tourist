@@ -17,8 +17,8 @@ struct CoreDataStack {
     internal let coordinator : NSPersistentStoreCoordinator
     private let modelURL: URL
     internal let dbURL : URL
-    internal let persistingContext : NSManagedObjectContext
-    internal let backgroundContext : NSManagedObjectContext
+    //internal let persistingContext : NSManagedObjectContext
+    //internal let backgroundContext : NSManagedObjectContext
     let context : NSManagedObjectContext
     
     //MARK: Initializers
@@ -49,15 +49,18 @@ struct CoreDataStack {
         
         //Create a persistingContext (private queue) and a child on (main queue)
         //Create a context and add connect it to the coordinator
-        persistingContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
-        persistingContext.persistentStoreCoordinator = coordinator
-        
         context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        context.parent = persistingContext
+        context.persistentStoreCoordinator = coordinator
         
-        //Create a background context child for main context
-        backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
-        backgroundContext.parent = context
+//        persistingContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+//        persistingContext.persistentStoreCoordinator = coordinator
+//
+//        context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+//        context.parent = persistingContext
+//
+//        //Create a background context child for main context
+//        backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+//        backgroundContext.parent = context
         
         //Add a SQLLite store located in the documents folder
         
@@ -71,8 +74,8 @@ struct CoreDataStack {
         
         self.dbURL = docURL.appendingPathComponent("model.sqlite")
         print(self.dbURL)
-        let options = [NSInferMappingModelAutomaticallyOption : true , NSMigratePersistentStoresAutomaticallyOption: true]
-        
+        let options = [NSInferMappingModelAutomaticallyOption : true , NSMigratePersistentStoresAutomaticallyOption: false]
+
         do{
             try addStoreCoordinator(NSSQLiteStoreType, configuration: nil, storeURL: dbURL, options: options as [NSObject:AnyObject]?)
         }catch{
@@ -105,14 +108,16 @@ internal extension CoreDataStack {
 extension CoreDataStack {
     
     func save() {
+        print("save()")
         // We call this synchronously, but it's a very fast
         // operation (it doesn't hit the disk). We need to know
         // when it ends so we can call the next save (on the persisting
         // context). This last one might take some time and is done
         // in a background queue
-        context.performAndWait() {
+        context.perform() {
             
             if self.context.hasChanges {
+                print("If has Changes")
                 do {
                     try self.context.save()
                     print("Save Context")
@@ -121,14 +126,14 @@ extension CoreDataStack {
                 }
                 
                 // now we save in the background
-                self.persistingContext.perform() {
-                    do {
-                        try self.persistingContext.save()
-                        print("Save persistingContext")
-                    } catch {
-                        fatalError("Error while saving persisting context: \(error)")
-                    }
-                }
+//                self.persistingContext.perform() {
+//                    do {
+//                        try self.persistingContext.save()
+//                        print("Save persistingContext")
+//                    } catch {
+//                        fatalError("Error while saving persisting context: \(error)")
+//                    }
+//                }
                 
                 
             }
