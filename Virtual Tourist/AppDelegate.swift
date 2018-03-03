@@ -71,7 +71,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         for pin in unfinishedPins {
             print("saveHasReturnedPinsOnExit in loop")
-            stack.context.perform {
+            stack.context.performAndWait {
                 pin.hasReturned = true
                 print("Saved On Exit")
                 
@@ -84,7 +84,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func saveHasNotReturnedPinsOnExit(){
         for pin in unfinishedPins {
             print("saveHasNotReturnedPinsOnExit in loop")
-            stack.context.perform {
+            stack.context.performAndWait {
                 pin.hasReturned = false
                 print("Saved On Exit")
                 

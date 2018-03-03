@@ -116,7 +116,7 @@ extension CoreDataStack {
         // when it ends so we can call the next save (on the persisting
         // context). This last one might take some time and is done
         // in a background queue
-        context.perform() {
+        context.performAndWait() {
             
             if self.context.hasChanges {
                 print("If has Changes")

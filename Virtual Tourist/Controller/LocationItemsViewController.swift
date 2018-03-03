@@ -254,8 +254,8 @@ class LocationItemsViewController: UIViewController {
         selectedImages.removeAll()
 
         stack.save()
-        let a = try? stack.context.count(for: frc.fetchRequest)
-        print("a: \(String(describing: a))")
+//        let a = try? stack.context.count(for: frc.fetchRequest)
+//        print("a: \(String(describing: a))")
         editingMode = false
         loadMorePictures.setTitle("Load More Pictures", for: .normal)
         allowSelectionOnCells(is: .Enabled)
